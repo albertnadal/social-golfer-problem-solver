@@ -4,23 +4,25 @@
 #define TOTAL_GROUPS 8
 #define PLAYERS_PER_GROUP 4
 
+void binary_string(char *str, unsigned int *data, int len)
+{
+	unsigned i, e = len-1;
+	for (i = 1 << (len-1); i > 0; i = i / 2)
+		str[e--] = (*data & i) ? '1' : '0';
+	str[len] = '\0';
+}
+
 void print_player_constrains(unsigned int *pairs, unsigned int player_index)
 {
         char str[TOTAL_PLAYERS+1] = "";
-        unsigned i, e = TOTAL_PLAYERS-1; 
-        for (i = 1 << (TOTAL_PLAYERS-1); i > 0; i = i / 2) 
-                str[e--] = (pairs[player_index] & i) ? '1' : '0';
-        str[TOTAL_PLAYERS] = '\0';
+	binary_string(str, &pairs[player_index], TOTAL_PLAYERS);
         printf("Player %d: %s\n", player_index, str);
 }
 
 void print_group(unsigned int *groups, unsigned int group_index)
 {
 	char str[TOTAL_PLAYERS+1] = "";
-	unsigned i, e = TOTAL_PLAYERS-1;
-	for (i = 1 << (TOTAL_PLAYERS-1); i > 0; i = i / 2) 
-		str[e--] = (groups[group_index] & i) ? '1' : '0';
-	str[TOTAL_PLAYERS] = '\0';
+	binary_string(str, &groups[group_index], TOTAL_PLAYERS);
 	printf("Group %d: %s\n", group_index, str);
 }
 
