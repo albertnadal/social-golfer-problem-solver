@@ -7,8 +7,8 @@
 #define PLAYERS_PER_GROUP 4
 #define MAX_COMBINATIONS 35960 // Max possible player combinations in a group without repetition 32!/(4!*(32-4)!) = 35960
 
-void binary_string(char *str, unsigned int *data, int len) {
-    unsigned i, e = len - 1;
+void binary_string(char *str, const unsigned int *data, unsigned int len) {
+    unsigned int i, e = len - 1;
     for (i = 1 << (len - 1); i > 0; i = i / 2)
         str[e--] = (*data & i) ? '1' : '0';
     str[len] = '\0';
@@ -30,12 +30,13 @@ void print_groups(unsigned int *groups) {
     }
 }
 
-unsigned int generate_group_combinations(unsigned int position, int offset, unsigned int *combinations, unsigned int combinations_count, unsigned int available_players_mask, unsigned int available_players_current_group_mask, unsigned int *constrains,  unsigned int *group_constrains) {
-    unsigned int group_players[PLAYERS_PER_GROUP] = {0};
+unsigned int generate_group_combinations(unsigned int position, int offset, unsigned int *combinations,
+                                         unsigned int combinations_count, unsigned int available_players_mask,
+                                         unsigned int *constrains) {
     unsigned int current_combination = combinations[combinations_count];
 
     // Trivial case:
-    if(position >= PLAYERS_PER_GROUP) {
+    if (position >= PLAYERS_PER_GROUP) {
         char str[TOTAL_PLAYERS + 1] = "";
         binary_string(str, &current_combination, TOTAL_PLAYERS);
         combinations_count++;
@@ -50,17 +51,18 @@ unsigned int generate_group_combinations(unsigned int position, int offset, unsi
 
     // Search next available player for current combination
     for (int i = offset; i < TOTAL_PLAYERS; i++) {
-        // Check if player is available in the current week. And check if player is not present in the current combination.
-        if((player & available_players_mask) && !(player & current_combination)) {
-                current_combination = player | current_combination; // Add current player into the current group combination
-                combinations[combinations_count] = current_combination;
-                available_players_mask &= ~(1UL << i); // Remove the current player from the available players mask
-                combinations_count = generate_group_combinations(position+1, i+1, combinations, combinations_count, available_players_mask, available_players_current_group_mask, constrains, group_constrains);
+        // Check if the player is available in the current week. And check if player is not present in the current combination.
+        if ((player & available_players_mask) && !(player & current_combination)) {
+            current_combination = player | current_combination; // Add current player into the current group combination
+            combinations[combinations_count] = current_combination;
+            available_players_mask &= ~(1UL << i); // Remove the current player from the available players mask
+            combinations_count = generate_group_combinations(position + 1, i + 1, combinations, combinations_count,
+                                                             available_players_mask, constrains);
 
-                // Uncomment the following line if the algorithm is not working properly
-                //combinations[combinations_count] = current_combination;
+            // Uncomment the following line if the algorithm is not working properly
+            //combinations[combinations_count] = current_combination;
 
-                available_players_mask |= 1UL << i; // Add the current player to the available players mask again
+            available_players_mask |= 1UL << i; // Add the current player to the available players mask again
         }
 
         current_combination &= ~(1UL << i); // Remove the current player from the current combination
@@ -92,11 +94,11 @@ bool solve_group(unsigned int *groups, unsigned int *constrains, int group_index
 
     // 143840 bytes of memory needed to store all the possible combinations. MAX_COMBINATIONS * sizeof(unsigned int)
     unsigned int group_combinations[MAX_COMBINATIONS] = {0};
-    unsigned int group_constrains[TOTAL_PLAYERS] = {0};
 
     printf("Generating group combinations...\n");
     // Generate non-repetitive combinations of 4 players using all current available players (32 at max)
-    unsigned int combinations_count = generate_group_combinations(0, 0, group_combinations, 0, available_players_mask, 0, constrains, group_constrains);
+    unsigned int combinations_count = generate_group_combinations(0, 0, group_combinations, 0, available_players_mask,
+                                                                  constrains);
 
     printf("TOTAL COMBINATIONS FOUND %d\n", combinations_count);
 /*
