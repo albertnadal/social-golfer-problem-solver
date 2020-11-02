@@ -1,11 +1,11 @@
+#include <stdlib.h>
 #include <stdio.h>
-#include <stdbool.h>
 
-#define TOTAL_PLAYERS 32
+#define MAX_PLAYERS 32
 #define MAX_GROUPS 8
 #define MAX_WEEKS 10
 #define PLAYERS_PER_GROUP 4
-#define MAX_COMBINATIONS 35960 // Max possible player combinations in a group without repetition 32!/(4!*(32-4)!) = 35960
+#define MAX_GROUP_COMBINATIONS 35960 // Max possible player combinations in a group without repetition 32!/(4!*(32-4)!) = 35960
 
 void binary_string(char *str, const unsigned int *data, unsigned int len) {
     unsigned int i, e = len - 1;
@@ -15,17 +15,17 @@ void binary_string(char *str, const unsigned int *data, unsigned int len) {
 }
 
 void print_players_constrains(unsigned int *constrains) {
-    for (int i = 0; i < TOTAL_PLAYERS; i++) {
-        char str[TOTAL_PLAYERS + 1] = "";
-        binary_string(str, &constrains[i], TOTAL_PLAYERS);
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        char str[MAX_PLAYERS + 1] = "";
+        binary_string(str, &constrains[i], MAX_PLAYERS);
         printf("Player %d: %s\n", i, str);
     }
 }
 
 void print_groups(unsigned int *groups) {
     for (int i = 0; i < MAX_GROUPS; i++) {
-        char str[TOTAL_PLAYERS + 1] = "";
-        binary_string(str, &groups[i], TOTAL_PLAYERS);
+        char str[MAX_PLAYERS + 1] = "";
+        binary_string(str, &groups[i], MAX_PLAYERS);
         printf("Group %d: %s\n", i, str);
     }
 }
@@ -48,22 +48,26 @@ unsigned int generate_group_combinations(unsigned int position, int offset, unsi
     player |= 1UL << offset;
 
     // Search next available player for current combination
-    for (int i = offset; i < TOTAL_PLAYERS; i++) {
-        // Check if the player is available in the current week. And check if player is not present in the current combination.
-        if ((player & available_players_mask) && !(player & current_combination)) {
+    for (int i = offset; i < MAX_PLAYERS; i++) {
+        // Check if the player is available in the current week. And check if player is not present in the current combination. And check if player did not joined any group with any of the players of the current combination.
+        unsigned int player_constrains = constrains[i]; // Get player constrains
+        if ((player & available_players_mask) && !(player & current_combination) && !(player_constrains & current_combination)) {
             current_combination = player | current_combination; // Add current player into the current group combination
             combinations[combinations_count] = current_combination;
             available_players_mask &= ~(1UL << i); // Remove the current player from the available players mask
-            combinations_count = generate_group_combinations(position + 1, i + 1, combinations, combinations_count,
-                                                             available_players_mask, constrains);
+            constrains[i] |= current_combination; // Add constrains to the current player
+            // TODO: Actualitzar les constrains a cada un dels players de la combinació actual amb el player actual
+
+            combinations_count = generate_group_combinations(position + 1, i + 1, combinations, combinations_count, available_players_mask, constrains);
 
             // Uncomment the following line if the algorithm is not working properly
             //combinations[combinations_count] = current_combination;
 
+            //constrains[i] // TODO: Fer un NAND per tornar a restablir les constrains del player
+            // TODO: Restaurar les constrains de cada un dels players de la combinació actual amb el player actual
             available_players_mask |= 1UL << i; // Add the current player to the available players mask again
+            current_combination &= ~(1UL << i); // Remove the current player from the current combination
         }
-
-        current_combination &= ~(1UL << i); // Remove the current player from the current combination
 
         // Uncomment the following line if the algorithm is not working properly
         //combinations[combinations_count] = current_combination;
@@ -75,20 +79,19 @@ unsigned int generate_group_combinations(unsigned int position, int offset, unsi
 
 void solve_group(unsigned int *weeks, unsigned int *constrains, int week_index, int group_index) {
 
-    if(week_index >= MAX_WEEKS) {
+    if (week_index >= MAX_WEEKS) {
         // Solved the Social Golfer Problem by completing the 10 weeks!
-        printf("Solved the Social Golfer Problem by completing the 10 weeks!");
-        return;
+        printf("Solved the Social Golfer Problem by completing the 10 weeks!\n");
+        exit(0);
     }
 
     unsigned int *week_groups = &weeks[week_index];
 
-    if(group_index >= MAX_GROUPS) {
+    if (group_index >= MAX_GROUPS) {
         // We solved the Social Golfer Problem up to the current week!
-        printf(">>> Solved the SGP up to week number %d\n", week_index);
+        printf(">>> Solved the SGP up to week number %d\n", week_index + 1);
 
         // Continue solving the next week
-        printf(">>> Start solving week number %d\n", week_index + 1);
         unsigned int *week_groups = &weeks[week_index + 1];
         solve_group(weeks, constrains, week_index + 1, 0);
     }
@@ -107,20 +110,17 @@ void solve_group(unsigned int *weeks, unsigned int *constrains, int week_index, 
     // Now we will generate all non-repetitive players combinations with the available players in the current group
     // Rule 2) Combinations cannot contain players that are in the same group in previous weeks.
 
-    printf("Generating combinations of group %d\n", group_index);
-
-    // 143840 bytes of memory needed to store all the possible combinations. MAX_COMBINATIONS * sizeof(unsigned int)
-    unsigned int group_combinations[MAX_COMBINATIONS] = {0};
+    // 143840 bytes of memory needed to store all the possible combinations. MAX_GROUP_COMBINATIONS * sizeof(unsigned int)
+    unsigned int group_combinations[MAX_GROUP_COMBINATIONS] = {0};
 
     // Generate non-repetitive combinations of 4 players using all current available players (32 at max)
     unsigned int combinations_count = generate_group_combinations(0, 0, group_combinations, 0, available_players_mask, constrains);
-
-    printf("\n%d COMBINATIONS FOUND FOR GROUP %d\n", combinations_count, group_index);
+    printf("%d COMBINATIONS FOUND FOR GROUP %d\n", combinations_count, group_index);
 
     for (int c = 0; c < combinations_count; c++) {
         week_groups[group_index] = group_combinations[c];
-/*        char str[TOTAL_PLAYERS + 1] = "";
-        binary_string(str, &week_groups[group_index], TOTAL_PLAYERS);
+/*        char str[MAX_PLAYERS + 1] = "";
+        binary_string(str, &week_groups[group_index], MAX_PLAYERS);
         printf("Current combination for group %d: %s\n", group_index, str);*/
         solve_group(weeks, constrains, week_index, group_index + 1);
     }
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
     unsigned int weeks[MAX_WEEKS][MAX_GROUPS] = {0};
 
     // Definition of pairs of players taken
-    unsigned int constrains[TOTAL_PLAYERS] = {0};
+    unsigned int constrains[MAX_PLAYERS] = {0};
 
     // Initial configuration per week 0
 /*	weeks[0][0] = 0xF; // 0,1,2,3
