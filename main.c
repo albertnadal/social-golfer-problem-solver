@@ -177,5 +177,5 @@ int main(__unused int argc, __unused char *argv[]) {
     int max_week_solved = 0;
 
     // Start solving from group 0 of week 0
-    solve_group(weeks, constraints, 0, 0, &max_week_solved);
+    solve_group(*weeks, constraints, 0, 0, &max_week_solved);
 }
