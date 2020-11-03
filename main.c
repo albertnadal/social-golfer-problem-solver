@@ -41,16 +41,16 @@ void shuffle(unsigned int *array, int n) {
     }
 }
 
-void update_constrains(unsigned int *constrains, unsigned int group_mask, bool apply) {
-    unsigned int constrain_mask = 0, i = 0;
+void update_constraints(unsigned int *constraints, unsigned int group_mask, bool apply) {
+    unsigned int constraint_mask = 0, i = 0;
     int players_indexes[PLAYERS_PER_GROUP] = {0};
 
     for (unsigned int player_index = 0, player_mask = 1;
          (player_mask <= (1 << (MAX_PLAYERS - 1))) && (i < PLAYERS_PER_GROUP); player_mask = player_mask * 2) {
 
-        // If player is present in the group then add the player to the constrain mask
+        // If player is present in the group then add the player to the constraint mask
         if (group_mask & player_mask) {
-            constrain_mask |= player_mask;
+            constraint_mask |= player_mask;
             players_indexes[i] = player_index;
             i++;
         }
@@ -59,14 +59,14 @@ void update_constrains(unsigned int *constrains, unsigned int group_mask, bool a
     }
 
     for (i = 0; i < PLAYERS_PER_GROUP; i++) {
-        if (apply) constrains[players_indexes[i]] |= constrain_mask; // Apply with OR
-        else constrains[players_indexes[i]] ^= constrain_mask; // Undo with XOR
+        if (apply) constraints[players_indexes[i]] |= constraint_mask; // Apply with OR
+        else constraints[players_indexes[i]] ^= constraint_mask; // Undo with XOR
     }
 }
 
 unsigned int generate_group_combinations(unsigned int position, int offset, unsigned int *combinations,
                                          unsigned int combinations_count, unsigned int available_players_mask,
-                                         unsigned int *constrains) {
+                                         unsigned int *constraints) {
     unsigned int current_combination_mask = combinations[combinations_count];
 
     if (position >= PLAYERS_PER_GROUP) {
@@ -82,15 +82,13 @@ unsigned int generate_group_combinations(unsigned int position, int offset, unsi
         // Search next available player for current combination
         for (int i = offset; i < MAX_PLAYERS; i++) {
             // Check if the player is available in the current week. And check if player is not present in the current combination. And check if player did not joined any group with any of the players of the current combination.
-            unsigned int player_constrains = constrains[i]; // Get player constrains
+            unsigned int player_constraints = constraints[i]; // Get player constraints
             if ((player & available_players_mask) && !(player & current_combination_mask) &&
-                !(player_constrains & current_combination_mask)) {
-                current_combination_mask =
-                        player | current_combination_mask; // Add current player into the current group combination
+                !(player_constraints & current_combination_mask)) {
+                current_combination_mask = player | current_combination_mask; // Add current player into the current group combination
                 combinations[combinations_count] = current_combination_mask;
                 available_players_mask &= ~(1UL << i); // Remove the current player from the available players mask
-                combinations_count = generate_group_combinations(position + 1, i + 1, combinations, combinations_count,
-                                                                 available_players_mask, constrains);
+                combinations_count = generate_group_combinations(position + 1, i + 1, combinations, combinations_count, available_players_mask, constraints);
                 available_players_mask |= 1UL << i; // Add the current player to the available players mask again
                 current_combination_mask &= ~(1UL << i); // Remove the current player from the current combination
             }
@@ -102,7 +100,7 @@ unsigned int generate_group_combinations(unsigned int position, int offset, unsi
     return combinations_count;
 }
 
-void solve_group(unsigned int *weeks, unsigned int *constrains, int week_index, int group_index, int *max_week_solved) {
+void solve_group(unsigned int *weeks, unsigned int *constraints, int week_index, int group_index, int *max_week_solved) {
 
     if (week_index >= MAX_WEEKS) {
         // Solved the Social Golfer Problem by completing the 10 weeks!
@@ -123,7 +121,7 @@ void solve_group(unsigned int *weeks, unsigned int *constrains, int week_index, 
         }
 
         // Continue solving the next week
-        solve_group(weeks, constrains, week_index + 1, 0, max_week_solved);
+        solve_group(weeks, constraints, week_index + 1, 0, max_week_solved);
     } else {
         // Recursive case
         unsigned int *week_groups = &weeks[week_index];
@@ -145,8 +143,7 @@ void solve_group(unsigned int *weeks, unsigned int *constrains, int week_index, 
         unsigned int group_combinations[MAX_GROUP_COMBINATIONS] = {0};
 
         // Generate non-repetitive combinations of 4 players using all current available players (32 at max)
-        unsigned int combinations_count = generate_group_combinations(0, 0, group_combinations, 0,
-                                                                      available_players_mask, constrains);
+        unsigned int combinations_count = generate_group_combinations(0, 0, group_combinations, 0, available_players_mask, constraints);
         shuffle(group_combinations, combinations_count);
 
         for (int c = 0; c < combinations_count; c++) {
@@ -154,13 +151,14 @@ void solve_group(unsigned int *weeks, unsigned int *constrains, int week_index, 
             week_groups[group_index] = group_combinations[c];
 
             // Apply restrictions for this combination
-            update_constrains(constrains, group_combinations[c], true);
+            update_constraints(constraints, group_combinations[c], true);
+
 
             // Solve next group recursively
-            solve_group(weeks, constrains, week_index, group_index + 1, max_week_solved);
+            solve_group(weeks, constraints, week_index, group_index + 1, max_week_solved);
 
             // Undo restrictions for this combination
-            update_constrains(constrains, group_combinations[c], false);
+            update_constraints(constraints, group_combinations[c], false);
         }
     }
 }
@@ -173,11 +171,11 @@ int main(__unused int argc, __unused char *argv[]) {
     unsigned int weeks[MAX_WEEKS][MAX_GROUPS] = {0};
 
     // Definition of pairs of players taken
-    unsigned int constrains[MAX_PLAYERS] = {0};
+    unsigned int constraints[MAX_PLAYERS] = {0};
 
     // Store the max number of weeks solved
     int max_week_solved = 0;
 
     // Start solving from group 0 of week 0
-    solve_group(weeks, constrains, 0, 0, &max_week_solved);
+    solve_group(weeks, constraints, 0, 0, &max_week_solved);
 }
